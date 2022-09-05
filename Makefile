@@ -26,8 +26,26 @@ requirements: test_environment
 	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
 
 ## Make Dataset
-data: requirements
-	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/processed
+# data: requirements
+data:
+	export $(xargs < .env)
+	# kaggle datasets download adamsebastiangorski/spotifysongfeatures -p data/external
+	# unzip data/external/spotifysongfeatures.zip -d data/raw/spotifysongfeatures
+	# aicrowd login
+	# aicrowd dataset download --challenge spotify-million-playlist-dataset-challenge -o data/external
+	# unzip data/external/spotify_million_playlist_dataset.zip -d data/raw/spotify_million_playlist_dataset
+	# unzip data/external/spotify_million_playlist_dataset_challenge.zip -d data/raw/spotify_million_playlist_dataset_challange
+	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/interim data/processed
+
+# features: requirements
+features:
+	$(PYTHON_INTERPRETER) -m src.features.build_features data/processed data/processed models/candidate_generation
+
+generate_candidates:
+	$(PYTHON_INTERPRETER) -m src.models.candidate_generation.generate_candidates data/processed models/candidate_generation
+
+eval_generate_candidates:
+	$(PYTHON_INTERPRETER) -m src.models.candidate_generation.eval_generate_candidates data/processed models/candidate_generation
 
 ## Delete all compiled Python files
 clean:
