@@ -90,3 +90,6 @@ target/
 
 # kaggle credentials
 kaggle.json
+
+# data files results
+data/dataset/*
