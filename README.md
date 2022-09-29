@@ -1,7 +1,15 @@
 conseillify-research
 ==============================
 
-Recommendation engine for spotify million playlist challange
+### Recommendation engine for spotify million playlist challange
+
+Downloading data requires
+- Valid aicrowd account
+- Kaggle.json file in ~./kaggle
+- at least 30GB of free memory
+
+
+
 
 Project Organization
 ------------

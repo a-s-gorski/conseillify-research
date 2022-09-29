@@ -32,12 +32,13 @@ mkdir -p {data/dataset,data/external,dta/predictions,data/processed/,data/predic
 # data: requirements
 data:
 	export $(xargs < .env)
-	# kaggle datasets download adamsebastiangorski/spotifysongfeatures -p data/external
-	# unzip data/external/spotifysongfeatures.zip -d data/raw/spotifysongfeatures
-	# aicrowd login
-	# aicrowd dataset download --challenge spotify-million-playlist-dataset-challenge -o data/external
-	# unzip data/external/spotify_million_playlist_dataset.zip -d data/raw/spotify_million_playlist_dataset
-	# unzip data/external/spotify_million_playlist_dataset_challenge.zip -d data/raw/spotify_million_playlist_dataset_challange
+	kaggle login
+	kaggle datasets download adamsebastiangorski/spotifysongfeatures -p data/external
+	unzip data/external/spotifysongfeatures.zip -d data/raw/spotifysongfeatures
+	aicrowd login
+	aicrowd dataset download --challenge spotify-million-playlist-dataset-challenge -o data/external
+	unzip data/external/spotify_million_playlist_dataset.zip -d data/raw/spotify_million_playlist_dataset
+	unzip data/external/spotify_million_playlist_dataset_challenge.zip -d data/raw/spotify_million_playlist_dataset_challange
 	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/processed
 
 # features: requirements
