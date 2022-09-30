@@ -25,6 +25,7 @@ def ranking_component(features: NDArray, playlists: NDArray, user_playlist: Arra
 
     user_playlist = np.array([encodings[track] for track in user_playlist if track in encodings])
     user_playlist = np.pad(user_playlist, (0, 375-len(user_playlist)), constant_values=(0,0))
+
     return relevant_playlists, features, user_playlist, recommended_tracks
 
 @click.command()
@@ -37,7 +38,6 @@ def main(features_path: str, playlists_path: str, user_playlist_path: str):
     playlists = pd.read_csv(playlists_path, index_col=False).to_numpy()
     user_playlist = np.array(pd.read_csv(user_playlist_path, index_col=False).to_numpy()[:, 1].flatten())
     relevant_playlists, features, user_playlist, recommended_tracks = ranking_component(features, playlists, user_playlist)
-    print(user_playlist)
     print(len(recommended_tracks))
     print(relevant_playlists.shape)
     print(features.shape)

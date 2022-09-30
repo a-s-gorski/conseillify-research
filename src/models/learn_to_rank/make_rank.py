@@ -42,7 +42,8 @@ def extract_relevant(playlists: NDArray, tracks: List[int], songs_features: NDAr
             sf[-1] = tracks_encodings[sf[-1]]
             relevant_tracks_features.append(sf)
     relevant_tracks_features = np.array(relevant_tracks_features)
-    return relevant_playlists, np.array(list(relevant_tracks)), relevant_tracks_features, tracks_encodings
+    recommended_tracks = [songs_features[index-1][0] for index in tracks]
+    return relevant_playlists, np.array(recommended_tracks), relevant_tracks_features, tracks_encodings
 
 
 def prepare_ranking(features: NDArray, playlists: NDArray, user_playlist: ArrayLike, epochs: Optional[int] = 1) -> Tuple[LightFM, coo_matrix]:

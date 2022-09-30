@@ -30,15 +30,16 @@ def main(model_path: str, dataset_path: str, encodings_path: str, features_path:
                      'spotify:track:6TOHnScC19Aw5fxiyPHB4z', 'spotify:track:2wBEMqe81CXIX88kph8GBO',
                      'spotify:track:7g2mskmb0okRLDtx0vtobh', 'spotify:track:0F1yb5tFzXDocAXqcljA9H']
     start = datetime.now()
-    relevant_playlists, tracks, features, user_playlist, decoded_track_uris = candidate_generation_component(
+    relevant_playlists, tracks, features, user_playlist, recommended_tracks = candidate_generation_component(
         model_path, dataset_path, encodings_path, user_playlist, features_path, playlists_path)
-    
     logging.info(f"Candidate generation execution time: {datetime.now() - start}")
     start = datetime.now()
-    print(f"relevant_playlists.shape {relevant_playlists.shape}")
-    print(f"user_playlist.shape {user_playlist.shape}")
-    ranking_component(features, relevant_playlists, user_playlist, 100)
+    relevant_playlists, features, user_playlist, recommended_tracks = ranking_component(features, relevant_playlists, user_playlist, 100)
     logging.info(f"Ranking execution time: {datetime.now() - start}")
+    print(list(recommended_tracks))
+    print(relevant_playlists.shape)
+    print(user_playlist.shape)
+    print(features.shape)
 
 
 
