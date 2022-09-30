@@ -1,9 +1,11 @@
-from ..models.candidate_generation.generate_candidates_pipeline import candidate_generation_component
-from ..models.learn_to_rank.make_rank_pipeline import ranking_component
-import click
 import logging
 from datetime import datetime
 
+import click
+
+from ..models.candidate_generation.generate_candidates_pipeline import \
+    candidate_generation_component
+from ..models.learn_to_rank.make_rank_pipeline import ranking_component
 
 
 @click.command()
@@ -33,6 +35,8 @@ def main(model_path: str, dataset_path: str, encodings_path: str, features_path:
     
     logging.info(f"Candidate generation execution time: {datetime.now() - start}")
     start = datetime.now()
+    print(f"relevant_playlists.shape {relevant_playlists.shape}")
+    print(f"user_playlist.shape {user_playlist.shape}")
     ranking_component(features, relevant_playlists, user_playlist, 100)
     logging.info(f"Ranking execution time: {datetime.now() - start}")
 

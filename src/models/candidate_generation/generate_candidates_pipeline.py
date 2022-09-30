@@ -1,16 +1,19 @@
+import logging
 from builtins import len
+from datetime import datetime
 from json import load
 from pydoc import cli
-from .generate_candidates import extract_n_tracks, extract_relevant
-from typing import List, Optional, Tuple, Dict, Any
-import numpy as np
-from ...features.build_features import load_pickle, save_pickle
-from ...data.make_dataset import load_songs_encodings
+from typing import Any, Dict, List, Optional, Tuple
+
 import click
-import logging
+import numpy as np
 import pandas as pd
-from numpy.typing import NDArray, ArrayLike
-from datetime import datetime
+from numpy.typing import ArrayLike, NDArray
+
+from ...data.make_dataset import load_songs_encodings
+from ...features.build_features import load_pickle, save_pickle
+from .generate_candidates import extract_n_tracks, extract_relevant
+
 
 def encode_tracks(tracks: List[str], songs_encodings: Dict[str, int]) -> List[int]:
     tracks = [songs_encodings[track]
@@ -42,8 +45,10 @@ def candidate_generation_component(model_path: str, dataset_path: str, encodings
     decoded_tracks = decode_tracks(tracks, encodings)
     relevant_playlists, tracks, features, encodings = extract_relevant(
         playlists, tracks, features, encoded_tracks)
-    user_playlist = [encodings[track]
-                     for track in user_playlist if track in encodings]
+    user_playlist = np.array([encodings[track]
+                     for track in user_playlist if track in encodings])
+    user_playlist = np.pad(user_playlist, (0, 375-len(user_playlist)), constant_values=(0,0))
+
     return relevant_playlists, tracks, features, user_playlist, decoded_tracks
 
 

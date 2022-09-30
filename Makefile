@@ -26,7 +26,8 @@ requirements: test_environment
 	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
 
 ## Setup file structure for storing data
-mkdir -p {data/dataset,data/external,dta/predictions,data/processed/,data/predictions/candidate_generation,data/predictions/learn_to_rank,data/raw}
+folder_structure:
+	mkdir -p {data/dataset,data/external,dta/predictions,data/processed/,data/predictions/candidate_generation,data/predictions/learn_to_rank,data/raw}
 
 ## Make Dataset
 # data: requirements
@@ -53,12 +54,12 @@ generate_candidates_pipeline:
 	models/candidate_generation/candidate_generator.pkl \
 	data/dataset/dataset_lightfm \
 	data/processed/songs_encodings.csv \
-	/home/adamgorski/Desktop/inzynierka/conseillify/conseillify-research/data/processed/songs_features.csv \
-	/home/adamgorski/Desktop/inzynierka/conseillify/conseillify-research/data/processed/playlists.csv
+	data/processed/songs_features.csv \
+	data/processed/playlists.csv
 
 rank:
 	$(PYTHON_INTERPRETER) -m src.models.learn_to_rank.make_rank data/predictions/candidate_generation \
-	models/learn_to_rank /home/adamgorski/Desktop/inzynierka/conseillify/conseillify-research/data/predictions/ranking
+	models/learn_to_rank data/predictions/ranking
 
 rank_pipeline:
 	$(PYTHON_INTERPRETER) -m src.models.learn_to_rank.make_rank_pipeline data/predictions/candidate_generation/features.csv \
@@ -69,8 +70,8 @@ recommendation_pipeline:
 	models/candidate_generation/candidate_generator.pkl \
 	data/dataset/dataset_lightfm \
 	data/processed/songs_encodings.csv \
-	/home/adamgorski/Desktop/inzynierka/conseillify/conseillify-research/data/processed/songs_features.csv \
-	/home/adamgorski/Desktop/inzynierka/conseillify/conseillify-research/data/processed/playlists.csv
+	data/processed/songs_features.csv \
+	data/processed/playlists.csv
 
 ## Delete all compiled Python files
 clean:
