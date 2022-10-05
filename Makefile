@@ -27,7 +27,7 @@ requirements: test_environment
 
 ## Setup file structure for storing data
 folder_structure:
-	mkdir -p {data/dataset,data/external,dta/predictions,data/processed/,data/predictions/candidate_generation,data/predictions/learn_to_rank,data/raw}
+	mkdir -p {data/dataset,data/external,dta/predictions,data/processed/,data/predictions/candidate_generation,data/predictions/learn_to_rank,data/raw, data/predictions/diversification}
 
 ## Make Dataset
 # data: requirements
@@ -64,6 +64,11 @@ rank:
 rank_pipeline:
 	$(PYTHON_INTERPRETER) -m src.models.learn_to_rank.make_rank_pipeline data/predictions/candidate_generation/features.csv \
 	data/predictions/candidate_generation/playlists.csv data/predictions/candidate_generation/user_playlist.csv
+
+diversify:
+	$(PYTHON_INTERPRETER) -m src.models.diversifaction.diversify data/predictions/ranking \
+	models/diversification data/predictions/diversification 
+
 
 recommendation_pipeline:
 	$(PYTHON_INTERPRETER) -m src.pipeline.recommendation_pipeline \

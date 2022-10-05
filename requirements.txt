@@ -26,3 +26,5 @@ lightfm~=1.16
 tensorflow-recommenders
 tensorflow-datasets
 path~=16.4.0
+torch
+dgl
