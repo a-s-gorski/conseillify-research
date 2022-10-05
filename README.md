@@ -1,7 +1,15 @@
 conseillify-research
 ==============================
 
-Recommendation engine for spotify million playlist challange
+### Recommendation engine for spotify million playlist challange
+
+Downloading data requires
+- Valid aicrowd account
+- Kaggle.json file in ~./kaggle
+- at least 30GB of free memory
+
+
+
 
 Project Organization
 ------------
@@ -53,5 +61,20 @@ Project Organization
 
 
 --------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>

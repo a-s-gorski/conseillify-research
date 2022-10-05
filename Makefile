@@ -25,9 +25,53 @@ requirements: test_environment
 	$(PYTHON_INTERPRETER) -m pip install -U pip setuptools wheel
 	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
 
+## Setup file structure for storing data
+folder_structure:
+	mkdir -p {data/dataset,data/external,dta/predictions,data/processed/,data/predictions/candidate_generation,data/predictions/learn_to_rank,data/raw}
+
 ## Make Dataset
-data: requirements
+# data: requirements
+data:
+	export $(xargs < .env)
+	kaggle login
+	kaggle datasets download adamsebastiangorski/spotifysongfeatures -p data/external
+	unzip data/external/spotifysongfeatures.zip -d data/raw/spotifysongfeatures
+	aicrowd login
+	aicrowd dataset download --challenge spotify-million-playlist-dataset-challenge -o data/external
+	unzip data/external/spotify_million_playlist_dataset.zip -d data/raw/spotify_million_playlist_dataset
+	unzip data/external/spotify_million_playlist_dataset_challenge.zip -d data/raw/spotify_million_playlist_dataset_challange
 	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/processed
+
+# features: requirements
+features:
+	$(PYTHON_INTERPRETER) -m src.features.build_features data/processed data/dataset
+
+generate_candidates:
+	$(PYTHON_INTERPRETER) -m src.models.candidate_generation.generate_candidates data/dataset data/processed data/predictions/candidate_generation models/candidate_generation
+
+generate_candidates_pipeline:
+	$(PYTHON_INTERPRETER) -m src.models.candidate_generation.generate_candidates_pipeline \
+	models/candidate_generation/candidate_generator.pkl \
+	data/dataset/dataset_lightfm \
+	data/processed/songs_encodings.csv \
+	data/processed/songs_features.csv \
+	data/processed/playlists.csv
+
+rank:
+	$(PYTHON_INTERPRETER) -m src.models.learn_to_rank.make_rank data/predictions/candidate_generation \
+	models/learn_to_rank data/predictions/ranking
+
+rank_pipeline:
+	$(PYTHON_INTERPRETER) -m src.models.learn_to_rank.make_rank_pipeline data/predictions/candidate_generation/features.csv \
+	data/predictions/candidate_generation/playlists.csv data/predictions/candidate_generation/user_playlist.csv
+
+recommendation_pipeline:
+	$(PYTHON_INTERPRETER) -m src.pipeline.recommendation_pipeline \
+	models/candidate_generation/candidate_generator.pkl \
+	data/dataset/dataset_lightfm \
+	data/processed/songs_encodings.csv \
+	data/processed/songs_features.csv \
+	data/processed/playlists.csv
 
 ## Delete all compiled Python files
 clean:
@@ -37,22 +81,6 @@ clean:
 ## Lint using flake8
 lint:
 	flake8 src
-
-## Upload Data to S3
-sync_data_to_s3:
-ifeq (default,$(PROFILE))
-	aws s3 sync data/ s3://$(BUCKET)/data/
-else
-	aws s3 sync data/ s3://$(BUCKET)/data/ --profile $(PROFILE)
-endif
-
-## Download Data from S3
-sync_data_from_s3:
-ifeq (default,$(PROFILE))
-	aws s3 sync s3://$(BUCKET)/data/ data/
-else
-	aws s3 sync s3://$(BUCKET)/data/ data/ --profile $(PROFILE)
-endif
 
 ## Set up python interpreter environment
 create_environment:
