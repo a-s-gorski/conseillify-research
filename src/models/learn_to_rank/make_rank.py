@@ -100,7 +100,7 @@ def main(input_filepath: str, model_filepath: str, output_filepath: str):
         features, playlists, user_playlist)
 
     logging.info("Making predictions")
-    predictions = extract_n_tracks(model, 0, user_interactions.shape[0], 50)
+    predictions = extract_n_tracks(model, 0, user_interactions.shape[0], 100)
 
     logging.info("Extracting relevant data")
     relevant_playlists, tracks, features, encodings = extract_relevant(
