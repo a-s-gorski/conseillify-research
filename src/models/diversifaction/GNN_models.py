@@ -1,19 +1,20 @@
-from dgl.nn import SAGEConv
+import itertools
+from builtins import len
+from itertools import combinations
+from typing import Any, Optional, Tuple, Union
+
 import dgl
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import pandas as pd
-from itertools import combinations
-import numpy as np
-from tqdm import tqdm
-import itertools
-from numpy.typing import NDArray, ArrayLike
-from typing import Optional, Union, Tuple, Any
-from builtins import len
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score
 from dgl import DGLHeteroGraph
+from dgl.nn import SAGEConv
+from numpy.typing import ArrayLike, NDArray
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import train_test_split
+from tqdm import tqdm
 
 
 class GraphSAGE(nn.Module):
@@ -28,6 +29,7 @@ class GraphSAGE(nn.Module):
         h = self.conv2(g, h)
         return h
 import dgl.function as fn
+
 
 class DotPredictor(nn.Module):
     def forward(self, g, h):

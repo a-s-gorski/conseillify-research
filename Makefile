@@ -69,6 +69,9 @@ diversify:
 	$(PYTHON_INTERPRETER) -m src.models.diversifaction.diversify data/predictions/ranking \
 	models/diversification data/predictions/diversification 
 
+diversify_pipeline:
+	$(PYTHON_INTERPRETER) -m src.models.diversifaction.diversify_pipeline data/predictions/candidate_generation/features.csv \
+	data/predictions/candidate_generation/playlists.csv data/predictions/candidate_generation/user_playlist.csv
 
 recommendation_pipeline:
 	$(PYTHON_INTERPRETER) -m src.pipeline.recommendation_pipeline \

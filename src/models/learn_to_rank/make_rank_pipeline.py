@@ -1,12 +1,10 @@
 import logging
-import os
-from typing import Any, Optional
+from builtins import len
+from typing import Optional
 
 import click
 import numpy as np
 import pandas as pd
-from lightfm import LightFM
-from lightfm.data import Dataset
 from numpy.typing import ArrayLike, NDArray
 
 from ...features.build_features import save_pickle
