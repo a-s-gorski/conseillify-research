@@ -73,7 +73,9 @@ Project Organization
 
 
 
-
+great_expectations
+hypothesis - biblioteki do testowania data science
+testowanie frontendu - pupeteering, ..
 
 
 

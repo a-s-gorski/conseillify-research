@@ -118,6 +118,9 @@ def main(input_filepath: str, model_filepath: str, output_filepath: str):
         os.path.join(output_filepath, "user_playlist.csv"))
     pd.DataFrame(features).to_csv(
         os.path.join(output_filepath, "features.csv"))
+    pd.Series(tracks).to_csv(
+        os.path.join(output_filepath, "selected_tracks.csv")
+    )
 
     logging.info("Saving model")
     save_pickle(model, os.path.join(model_filepath, "ranking_model.pkl"))

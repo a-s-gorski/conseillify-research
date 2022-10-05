@@ -36,6 +36,8 @@ def main(model_path: str, dataset_path: str, encodings_path: str, features_path:
     start = datetime.now()
     relevant_playlists, features, user_playlist, recommended_tracks = ranking_component(features, relevant_playlists, user_playlist, 100)
     logging.info(f"Ranking execution time: {datetime.now() - start}")
+    
+    print(tracks)
     print(list(recommended_tracks))
     print(relevant_playlists.shape)
     print(user_playlist.shape)
