@@ -103,5 +103,4 @@ def predict(candidates: NDArray, features: torch.tensor, predictor: Union[MLPPre
     predictions = [(score, index) for index, score in enumerate(predictions)]
     predictions.sort(reverse=False)
     recommended_tracks = np.array(predictions)[:n,1].flatten()
-    print(recommended_tracks)
     return recommended_tracks

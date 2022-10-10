@@ -34,9 +34,9 @@ def generate_neg_edges(pos_edges: NDArray, neg_size, max_iterations: Optional[in
     return np.array(list(neg_edges))
 
 
-def generate_candidate_edges(pos_edges: NDArray, neg_edges: NDArray, user_playlist: ArrayLike, n_candidates: Optional[int] = 1000, max_iterations: Optional[int] = 1000000):
+def generate_candidate_edges(pos_edges: NDArray, neg_edges: NDArray, user_playlist: ArrayLike, n_candidates: Optional[int] = 1000, max_iterations: Optional[int] = 100000):
     start_candidates = set(user_playlist)
-    start_candidates.discard(0)
+    # start_candidates.discard(0)
     end_candidates = set([track for track in set(
         pos_edges.flatten()) if track not in start_candidates])
     end_candidates.discard(0)
@@ -84,6 +84,7 @@ def recommend_n_diverse(features: NDArray, playlists: NDArray, user_playlist: ND
     logging.info("Training model")
     model, predictor, hidden_dim = train(
         model, predictor, graph, pos_graph, neg_graph, epochs=20, verbose=True)
+    logging.info("Generating candidates")
     candidates = generate_candidate_edges(pos_edges, neg_edges, user_playlist)
     print(candidates.shape)
     logging.info("Inference")

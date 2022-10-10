@@ -8,7 +8,6 @@ from src.models.diversifaction.diversify_pipeline import \
 
 from ..models.candidate_generation.generate_candidates_pipeline import \
     candidate_generation_component
-from ..models.learn_to_rank.make_rank_pipeline import ranking_component
 
 
 @click.command()

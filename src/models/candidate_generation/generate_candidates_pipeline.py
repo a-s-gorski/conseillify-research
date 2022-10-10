@@ -17,8 +17,9 @@ from .generate_candidates import extract_n_tracks, extract_relevant
 
 def encode_tracks(tracks: List[str], songs_encodings: Dict[str, int]) -> List[int]:
     tracks = [songs_encodings[track]
-              for track in tracks if track in songs_encodings]
-    tracks = np.pad(tracks, (0, 375-len(tracks)), constant_values=(0, 0))
+              for track in tracks]
+    tracks = tracks[:376]
+    tracks = np.pad(tracks, (0, 376-len(tracks)), mode='constant', constant_values=(-1, -1))
     return tracks
 
 
@@ -29,7 +30,7 @@ def decode_tracks(tracks: List[int], songs_encodings: Dict[str, int]) -> List[st
 
 
 def build_user_tuples(tracks: List[int]):
-    return [(0, track_id, 1) for track_id in tracks if track_id != 0]
+    return [(0, track_id, 1) for track_id in tracks if track_id != -1]
 
 
 def candidate_generation_component(model_path: str, dataset_path: str, encodings_path: str, user_playlist: List[str], features_path: str, playlists_path: str, N: Optional[int] = 1000) -> Tuple[Any, ArrayLike, NDArray, List[int], List[str]]:
@@ -46,8 +47,8 @@ def candidate_generation_component(model_path: str, dataset_path: str, encodings
     relevant_playlists, tracks, features, encodings = extract_relevant(
         playlists, tracks, features, encoded_tracks)
     user_playlist = np.array([encodings[track]
-                     for track in user_playlist if track in encodings])
-    user_playlist = np.pad(user_playlist, (0, 375-len(user_playlist)), constant_values=(0,0))
+                     for track in user_playlist])
+    user_playlist = np.pad(user_playlist, (0, 375-len(user_playlist)), mode='constant', constant_values=(-1,-1))
 
     return relevant_playlists, tracks, features, user_playlist, decoded_tracks
 

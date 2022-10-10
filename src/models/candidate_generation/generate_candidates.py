@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import Any, Dict, List, Tuple
+from collections import defaultdict
 
 import click
 import numpy as np
@@ -11,6 +12,8 @@ from scipy.sparse import load_npz
 
 from ...features.build_features import load_pickle, save_pickle
 
+def empty_track():
+    return -1
 
 def extract_n_tracks(model: LightFM, user_id: int, tracks_shape: int, n_tracks: int = 5):
     predictions = model.predict(user_id, np.arange(1, tracks_shape))
@@ -21,9 +24,7 @@ def extract_n_tracks(model: LightFM, user_id: int, tracks_shape: int, n_tracks: 
     return predictions
 
 def extract_relevant(playlists: NDArray, tracks: List[int], songs_features: NDArray, user_playlist: ArrayLike) -> Tuple[Any, ArrayLike, NDArray, Dict[Any, int]]:
-    def encode(track_encodings: Dict, track: int):
-        if track == 0 or track not in track_encodings:
-            return 0
+    def encode(track_encodings: defaultdict, track: int):
         return track_encodings[track]
     tracks_set = set(tracks)
     relevant_playlists = [user_playlist, ]
@@ -33,8 +34,10 @@ def extract_relevant(playlists: NDArray, tracks: List[int], songs_features: NDAr
             relevant_playlists.append(playlist)
     # extracting all relevant tracks
     relevant_tracks = set(np.array(relevant_playlists).flatten())
-    relevant_tracks.discard(0)
-    tracks_encodings = {track: index + 1 for index, track in enumerate(relevant_tracks)}
+    relevant_tracks.discard(-1)
+    tracks_encodings = defaultdict(empty_track)
+    for index, track in enumerate(relevant_tracks):
+        tracks_encodings[track] = index
     encode_vectorizer = np.vectorize(encode)
     relevant_playlists = encode_vectorizer(tracks_encodings, relevant_playlists)
     relevant_tracks_features = []
@@ -65,15 +68,15 @@ def main(interactions_input_filepath: str, playlists_input_filepath: str, output
     dataset = load_pickle(os.path.join(interactions_input_filepath, "dataset_lightfm"))
     
     logger.info("Creating model")
-    model = LightFM(no_components=100, loss='warp')
+    model = LightFM(no_components=5, loss='warp')
     logger.info("Fitting model")
-    model.fit(train_interactions, epochs=3, verbose=True)
+    model.fit(train_interactions, epochs=1, verbose=True)
     model.fit_partial(val_interactions)
     model.fit_partial(test_interactions)
 
     logger.info("Fitting example user")
     example_interactions = all_playlists[999998]
-    example_interactions = [(999998, track_id, 1) for track_id in example_interactions if track_id != 0]
+    example_interactions = [(999998, track_id, 1) for track_id in example_interactions if track_id != -1]
     example_interactions, _ = dataset.build_interactions(example_interactions)
     model.fit_partial(example_interactions)
 
@@ -81,10 +84,11 @@ def main(interactions_input_filepath: str, playlists_input_filepath: str, output
     save_pickle(model, os.path.join(model_path, "candidate_generator.pkl"))
     
     logger.info("Extracting predictions")
-    predictions = extract_n_tracks(model, 999998, train_interactions.shape[0], 10000)
+    predictions = extract_n_tracks(model, 999998, train_interactions.shape[0], 1000)
     relevant_playlists, tracks, features, encodings = extract_relevant(all_playlists, predictions, songs_features, all_playlists[999998])
-    user_playlist = np.array([encodings[track] for track in all_playlists[999998] if track in encodings])
-    user_playlist = np.pad(user_playlist, (0, 375-len(user_playlist)), constant_values=(0,0))
+    user_playlist = np.array([encodings[track] for track in all_playlists[999998]])
+    user_playlist = user_playlist[:375]
+    user_playlist = np.pad(user_playlist, (0, max(375-len(user_playlist), 0)), mode='constant', constant_values=(-1,-1))
 
     logger.info("Saving relevant data")
     logger.info(f"Tracks common in selected and relevant playlists {set(user_playlist) & set(tracks)}")

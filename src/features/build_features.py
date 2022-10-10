@@ -9,10 +9,10 @@ import pandas as pd
 from lightfm.data import Dataset
 from numpy.typing import NDArray
 from scipy.sparse import save_npz
-
+from tqdm import tqdm
 
 def create_interactions_tuples(playlists: NDArray, starting_index: int = 0):
-    return np.array([(user + starting_index, item, 1)  for user, row in enumerate(playlists) for item in row if item != 0])
+    return np.array([(user + starting_index, item, 1)  for user, row in tqdm(enumerate(playlists), total=playlists.shape[0]) for item in row if item != -1])
 
 def load_pickle(input_path) -> Any:
     with open(input_path, 'rb+') as file:
@@ -42,7 +42,7 @@ def main(input_filepath, output_filepath):
 
     logging.info("Fitting datset")
     dataset = Dataset(user_identity_features=False, item_identity_features=False)
-    dataset.fit(users=np.arange(0, N_USERS + 1), items=np.arange(1, N_ITEMS+1))
+    dataset.fit(users=np.arange(0, N_USERS + 1), items=np.arange(0, N_ITEMS + 1))
 
     train_interactions = create_interactions_tuples(train_playlist, 0)
     train_interactions, _ = dataset.build_interactions(train_interactions)

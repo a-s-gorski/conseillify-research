@@ -20,7 +20,7 @@ def diversify_component(features: NDArray, playlists: NDArray, user_playlist: ND
     return predictions
 
 def rank_and_diversify_component(features: NDArray, playlists: NDArray, user_playlist: NDArray, ranking_n: Optional[int]=100, ranking_epochs: Optional[int]=1,  diversify_n: Optional[int] = 10, diversify_sample_size: Optional[int] = 5, diversify_hid_dim: Optional[int] = 16, diversify_epochs: Optional[int] = 100):
-    relevant_playlists, features, user_playlist, recommended_tracks = ranking_component(features, playlists, user_playlist, ranking_n, ranking_epochs)
+    relevant_playlists, features, user_playlist, recommended_tracks, recommended_ids = ranking_component(features, playlists, user_playlist, ranking_n, ranking_epochs)
     additional_recommendations = diversify_component(features, relevant_playlists, user_playlist, diversify_n, diversify_sample_size, diversify_hid_dim, diversify_epochs)
     additional_recommendations = additional_recommendations.astype('int64')
     additional_tracks = features[additional_recommendations, 0].flatten()

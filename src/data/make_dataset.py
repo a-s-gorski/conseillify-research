@@ -1,9 +1,9 @@
 import json
 import logging
 import os
-from enum import unique
 from pathlib import Path
-from typing import Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Dict, List, Tuple
+from collections import defaultdict
 
 import click
 import numpy as np
@@ -16,10 +16,12 @@ from tqdm import tqdm
 SONG_FEATURES_COLS = ["danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness",
                       "instrumentalness", "liveness", "valence", "tempo"]
 
+def empty_track():
+    return -1
 
-def load_songs_features(input_path: str) -> Dict[str, np.ndarray]:
+def load_songs_features(input_path: str) -> Dict[str, NDArray]:
     songs_features_df = pd.read_csv(input_path)
-    songs_features_dict = {}
+    songs_features_dict = defaultdict(empty_track)
     for _, row in tqdm(songs_features_df.iterrows(), total=songs_features_df.shape[0]):
         songs_features_dict[row[1]] = np.array(row[2:-2].to_list())
     return songs_features_dict
@@ -33,8 +35,9 @@ def save_songs_encodings(songs_encodings: Dict, output_path: str):
 
 def load_songs_encodings(input_path: str) -> Dict[str, int]:
     songs_encodings_df = pd.read_csv(input_path, index_col=False)
-    songs_encodings = {track_uri: track_encoding for track_uri, track_encoding in
-                       zip(songs_encodings_df.track_uris, songs_encodings_df.track_encoding)}
+    songs_encodings = defaultdict(empty_track)
+    for track_uri, track_encoding in zip(songs_encodings_df.track_uris, songs_encodings_df.track_encoding):
+        songs_encodings[track_uri] = track_encoding
     return songs_encodings
 
 
@@ -44,18 +47,15 @@ def add_track_ids(songs_features: pd.DataFrame, song_encodings: Dict[str, int]) 
     return songs_features
 
 
-def load_playlists(songs_encodings: Dict, input_path: str) -> List[List[int]]:
+def load_playlists(songs_encodings: Dict, input_path: str) -> Tuple[List[List[int]], List[str]]:
     playlists = []
+    playlist_names = []
     for file in tqdm(os.listdir(input_path)):
         with open(os.path.join(input_path, file)) as json_file:
             file_data = json.load(json_file)
             for playlist in file_data["playlists"]:
-                temp_playlist = []
-                for track in playlist["tracks"]:
-                    track_uri = track["track_uri"]
-                    if track_uri in songs_encodings:
-                        temp_playlist.append(songs_encodings[track_uri])
-                playlists.append(temp_playlist)
+                playlist_names.append(playlist["name"])
+                playlists.append([songs_encodings[track["track_uri"]] for track in playlist["tracks"]])
     return playlists
 
 
@@ -65,7 +65,7 @@ def process_playlists(playlists: List[List[int]]) -> NDArray[np.uint64]:
     for playlist in tqdm(playlists):
         playlist = np.array(playlist, dtype=np.int64)
         playlist = np.pad(playlist, (0, max_playlist_len -
-                          len(playlist)), mode='constant')
+                          len(playlist)), mode='constant', constant_values=(-1, -1))
         processed_playlists.append(playlist)
     return np.array(processed_playlists)
 
@@ -93,8 +93,9 @@ def main(input_filepath, output_filepath):
     songs_features_df.drop(columns=["type"], inplace=True)
 
     logger.info("creating songs_encodings")
-    songs_encodings = {track_uri: index + 1 for index,
-                       track_uri in enumerate(songs_features_df.track_uri)}
+    songs_encodings = defaultdict(empty_track)
+    for index, track_uri in enumerate(songs_features_df.track_uri):
+        songs_encodings[track_uri] = index
 
     logger.info("adding song_encoding to song_features")
     songs_features_df = add_track_ids(songs_features_df, songs_encodings)
