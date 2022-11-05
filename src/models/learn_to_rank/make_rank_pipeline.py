@@ -22,7 +22,7 @@ def ranking_component(features: NDArray, playlists: NDArray, user_playlist: Arra
     relevant_playlists, recommended_tracks, features, encodings = extract_relevant(playlists, predictions, features, user_playlist)
 
     user_playlist = np.array([encodings[track] for track in user_playlist if track in encodings])
-    user_playlist = np.pad(user_playlist, (0, 375-len(user_playlist)), constant_values=(-1, -1))
+    user_playlist = np.pad(user_playlist, (0, 376-len(user_playlist)), mode='constant', constant_values=(-1, -1))
 
     return relevant_playlists, features, user_playlist, recommended_tracks, predictions
 
@@ -35,6 +35,8 @@ def main(features_path: str, playlists_path: str, user_playlist_path: str):
     features = np.array(pd.read_csv(features_path, index_col=False).to_numpy())
     playlists = pd.read_csv(playlists_path, index_col=False).to_numpy()
     user_playlist = np.array(pd.read_csv(user_playlist_path, index_col=False).to_numpy()[:, 1].flatten())
+    user_playlist = np.pad(user_playlist, (0, 376-len(user_playlist)), mode='constant', constant_values=(-1, -1))
+
     relevant_playlists, features, user_playlist, recommended_tracks, _ = ranking_component(features, playlists, user_playlist)
     print(len(recommended_tracks))
     print(relevant_playlists.shape)

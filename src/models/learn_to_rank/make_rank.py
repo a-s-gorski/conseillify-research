@@ -30,6 +30,8 @@ def extract_relevant(playlists: NDArray, tracks: List[int], songs_features: NDAr
         if set(playlist) & set(tracks_set):
             relevant_playlists.append(playlist)
     # extracting all relevant tracks
+    print(f"len_playlists { set([len(p) for p in playlists])} len_user_playlist {len(user_playlist)}")
+    print()    
     relevant_playlists = np.array(relevant_playlists)
 
     relevant_tracks = set(relevant_playlists.flatten())

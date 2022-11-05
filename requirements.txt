@@ -28,3 +28,7 @@ tensorflow-datasets
 path~=16.4.0
 torch
 dgl
+nltk
+gensim
+hdbscan
+dill

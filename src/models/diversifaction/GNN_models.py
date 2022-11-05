@@ -28,6 +28,8 @@ class GraphSAGE(nn.Module):
         h = F.relu(h)
         h = self.conv2(g, h)
         return h
+
+
 import dgl.function as fn
 
 
@@ -37,6 +39,8 @@ class DotPredictor(nn.Module):
             g.ndata['h'] = h
             g.apply_edges(fn.u_dot_v('h', 'h', 'score'))
             return g.edata['score'][:, 0]
+
+
 class MLPPredictor(nn.Module):
     def __init__(self, h_feats):
         super().__init__()
@@ -69,10 +73,12 @@ class MLPPredictor(nn.Module):
             g.apply_edges(self.apply_edges)
             return g.edata['score']
 
+
 def compute_loss(pos_score, neg_score):
     scores = torch.cat([pos_score, neg_score])
     labels = torch.cat([torch.ones(pos_score.shape[0]), torch.zeros(neg_score.shape[0])])
     return F.binary_cross_entropy_with_logits(scores, labels)
+
 
 def compute_auc(pos_score, neg_score):
     scores = torch.cat([pos_score, neg_score]).numpy()
@@ -80,14 +86,17 @@ def compute_auc(pos_score, neg_score):
         [torch.ones(pos_score.shape[0]), torch.zeros(neg_score.shape[0])]).numpy()
     return roc_auc_score(labels, scores)
 
-def train(model: GraphSAGE, predictor: Union[MLPPredictor, DotPredictor], graph: DGLHeteroGraph, pos_graph: DGLHeteroGraph, neg_graph: DGLHeteroGraph, lr: Optional[float]=0.01, epochs: Optional[int]=100, verbose: Optional[bool]=False) -> Tuple[GraphSAGE, Union[MLPPredictor, DotPredictor], torch.Tensor]:
+
+def train(model: GraphSAGE, predictor: Union[MLPPredictor, DotPredictor], graph: DGLHeteroGraph,
+          pos_graph: DGLHeteroGraph, neg_graph: DGLHeteroGraph, lr: Optional[float] = 0.01, epochs: Optional[int] = 100,
+          verbose: Optional[bool] = False) -> Tuple[GraphSAGE, Union[MLPPredictor, DotPredictor], torch.Tensor]:
     optimizer = torch.optim.Adadelta(itertools.chain(model.parameters(), predictor.parameters()), lr=lr)
     for epoch in range(epochs):
         h = model(graph, graph.ndata['feat'])
         pos_score = predictor(pos_graph, h)
         neg_score = predictor(neg_graph, h)
         loss = compute_loss(pos_score, neg_score)
-        
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -95,12 +104,14 @@ def train(model: GraphSAGE, predictor: Union[MLPPredictor, DotPredictor], graph:
             print('In epoch {}, loss: {}'.format(epoch, loss))
     return model, predictor, h
 
-def predict(candidates: NDArray, features: torch.tensor, predictor: Union[MLPPredictor, DotPredictor], hidden_dim: torch.Tensor, n: Optional[int]=100) -> ArrayLike:
+
+def predict(candidates: NDArray, features: torch.tensor, predictor: Union[MLPPredictor, DotPredictor],
+            hidden_dim: torch.Tensor, n: Optional[int] = 100) -> ArrayLike:
     candidates_graph = dgl.graph((candidates[:, 0].flatten(), candidates[:, 1].flatten()), num_nodes=features.shape[0])
-    candidates_graph.ndata['feat']=features
+    candidates_graph.ndata['feat'] = features
     candidates_preds = predictor(candidates_graph, hidden_dim)
     predictions = candidates_preds.detach().numpy()
     predictions = [(score, index) for index, score in enumerate(predictions)]
     predictions.sort(reverse=False)
-    recommended_tracks = np.array(predictions)[:n,1].flatten()
+    recommended_tracks = np.array(predictions)[:n, 1].flatten()
     return recommended_tracks

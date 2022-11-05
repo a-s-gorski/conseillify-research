@@ -24,11 +24,11 @@ endif
 requirements: test_environment
 	$(PYTHON_INTERPRETER) -m pip install -U pip setuptools wheel
 	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
+	$(PYTHON_INTERPRETER) -m nltk.downloader all
 
 ## Setup file structure for storing data
 folder_structure:
-	mkdir -p {data/dataset,data/external,dta/predictions,data/processed/,data/predictions/candidate_generation,data/predictions/learn_to_rank,data/raw, data/predictions/diversification}
-
+	mkdir -p {data/dataset,data/external,data/predictions,data/processed/,data/predictions/candidate_generation,data/predictions/learn_to_rank,data/raw,data/predictions/diversification}
 ## Make Dataset
 # data: requirements
 data:
@@ -72,6 +72,14 @@ diversify:
 diversify_pipeline:
 	$(PYTHON_INTERPRETER) -m src.models.diversifaction.diversify_pipeline data/predictions/candidate_generation/features.csv \
 	data/predictions/candidate_generation/playlists.csv data/predictions/candidate_generation/user_playlist.csv
+
+coldstart:
+	$(PYTHON_INTERPRETER) -m src.models.coldstart.cluster_coldstart data/processed models/coldstart
+
+coldstart_pipeline:
+	$(PYTHON_INTERPRETER) -m src.models.coldstart.coldstart_pipeline models/coldstart/embedding.pkl models/coldstart/pca.pkl \
+	models/coldstart/clusterer.pkl models/coldstart/clustered_tracks.pkl models/coldstart/clustered_tracks.pkl
+
 
 recommendation_pipeline:
 	$(PYTHON_INTERPRETER) -m src.pipeline.recommendation_pipeline \

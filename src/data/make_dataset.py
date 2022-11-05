@@ -56,7 +56,7 @@ def load_playlists(songs_encodings: Dict, input_path: str) -> Tuple[List[List[in
             for playlist in file_data["playlists"]:
                 playlist_names.append(playlist["name"])
                 playlists.append([songs_encodings[track["track_uri"]] for track in playlist["tracks"]])
-    return playlists
+    return playlists, playlist_names
 
 
 def process_playlists(playlists: List[List[int]]) -> NDArray[np.uint64]:
@@ -109,15 +109,15 @@ def main(input_filepath, output_filepath):
         output_filepath, "songs_encodings.csv"))
 
     logger.info("loading_playlists")
-    playlists = load_playlists(songs_encodings, os.path.join(
+    playlists, playlist_names = load_playlists(songs_encodings, os.path.join(
         input_filepath, "spotify_million_playlist_dataset/data"))
 
     logger.info("processing tracks")
     playlists = process_playlists(playlists)
 
     logger.info("splitting playlists")
-    train_p, holdout_p = train_test_split(playlists, test_size=0.0001)
-    val_p, test_p = train_test_split(holdout_p, test_size=0.5)
+    train_p, holdout_p, train_names, holdout_names = train_test_split(playlists, playlist_names, test_size=0.0001)
+    val_p, test_p, val_names, test_names = train_test_split(holdout_p, holdout_names, test_size=0.5)
 
     logger.info("saving_playlists")
     save_playlists(playlists, os.path.join(output_filepath, "playlists.csv"))
@@ -125,6 +125,11 @@ def main(input_filepath, output_filepath):
         output_filepath, "train_playlists.csv"))
     save_playlists(val_p, os.path.join(output_filepath, "val_playlists.csv"))
     save_playlists(test_p, os.path.join(output_filepath, "test_playlists.csv"))
+    pd.Series(playlist_names).to_csv(os.path.join(output_filepath, "playlist_names.csv"))
+    pd.Series(train_names).to_csv(os.path.join(output_filepath, "train_names.csv"))
+    pd.Series(test_names).to_csv(os.path.join(output_filepath, "test_names.csv"))
+    pd.Series(val_names).to_csv(os.path.join(output_filepath, "val_names.csv"))
+
 
 
 if __name__ == '__main__':
