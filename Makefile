@@ -124,6 +124,18 @@ test_recommendation_pipeline:
 	data/processed/test_playlists.csv \
 	reports/eval_rank_and_diversify
 
+test_reranked_pipeline:
+	$(PYTHON_INTERPRETER) -m tests.models.reranking.test_reranking \
+	models/candidate_generation/candidate_generator.pkl \
+	data/dataset/dataset_lightfm \
+	data/processed/songs_encodings.csv \
+	data/processed/songs_features.csv \
+	data/processed/playlists.csv \
+	data/processed/test_playlists.csv \
+	models/reranking/uris_dict.pkl \
+	models/reranking/desired_distribution.pkl \
+	reports/eval_rank_and_diversify
+
 ## Delete all compiled Python files
 clean:
 	find . -type f -name "*.py[co]" -delete
