@@ -2,7 +2,7 @@ import itertools
 import logging
 import os
 from builtins import len
-from itertools import combinations, chain
+from itertools import chain, combinations
 from typing import Optional, Tuple, Union
 
 import click
@@ -14,7 +14,6 @@ from numpy.typing import ArrayLike, NDArray
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-import os
 
 from ...features.build_features import load_pickle, save_pickle
 from .GNN_models import DotPredictor, GraphSAGE, MLPPredictor, predict, train
@@ -38,6 +37,7 @@ def generate_neg_edges(pos_edges: NDArray, neg_size, max_iterations: Optional[in
 def generate_candidate_edges(pos_edges: NDArray, neg_edges: NDArray, user_playlist: ArrayLike, n_candidates: Optional[int] = 1000, max_iterations: Optional[int] = 100000):
     start_candidates = set(user_playlist)
     start_candidates.discard(-1)
+
     end_candidates = set([track for track in set(
         pos_edges.flatten()) if track not in start_candidates])
     end_candidates.discard(-1)
@@ -63,21 +63,19 @@ def recommend_n_diverse(features: NDArray, playlists: NDArray, user_playlist: ND
     sampled_playlists = playlists[np.random.choice(
         playlists.shape[0], size=sample_size, replace=False), :]
     logging.info("Building edges")
-    sampled_playlists = [[track for track in playlist if track != -1] for playlist in sampled_playlists]
+    sampled_playlists = [[track for track in playlist if track != -1]
+                         for playlist in sampled_playlists]
     sampled_playlists = [row for row in sampled_playlists if len(row) > 1]
-    pos_edges = [list(combinations(playlist, 2)) for playlist in sampled_playlists]
+    pos_edges = [list(combinations(playlist, 2))
+                 for playlist in sampled_playlists]
     pos_edges = list(itertools.chain(*pos_edges))
     pos_edges = np.array(pos_edges)
     print(pos_edges.shape)
     pos_edges = np.unique(pos_edges, axis=0)
     print(pos_edges.shape)
-    print(f"pos_edges_shape {pos_edges.shape} min_pos_edge {min(pos_edges.flatten())} max_pos_edge {max(pos_edges.flatten())}")
+    print(
+        f"pos_edges_shape {pos_edges.shape} min_pos_edge {min(pos_edges.flatten())} max_pos_edge {max(pos_edges.flatten())}")
 
-
-
-
-
-    
     print(f"pos_edges_shape {pos_edges.shape}")
     neg_edges = generate_neg_edges(pos_edges, pos_edges.shape[0])
     print(f"max_neg_edge {max(neg_edges.flatten())}")
@@ -125,11 +123,13 @@ def main(input_filepath: str, model_filepath: str, output_filepath: str):
         input_filepath, "user_playlist.csv")).to_numpy()[:, 1]
     SAMPLE_SIZE = 3
     predictions, model, predictor, hidden_dim = recommend_n_diverse(features, playlists, user_playlist,
-                        100, 10, 32, epochs=20)
-    pd.Series(predictions).to_csv(os.path.join(output_filepath, "recommendations.csv"))
+                                                                    100, 10, 32, epochs=20)
+    pd.Series(predictions).to_csv(os.path.join(
+        output_filepath, "recommendations.csv"))
     save_pickle(model, os.path.join(model_filepath, "gnn_model.pkl"))
     save_pickle(predictor, os.path.join(model_filepath, "gnn_predictor.pkl"))
-    pd.DataFrame(hidden_dim.detach().numpy()).to_csv(os.path.join(model_filepath, "hidden_dim.csv"))
+    pd.DataFrame(hidden_dim.detach().numpy()).to_csv(
+        os.path.join(model_filepath, "hidden_dim.csv"))
 
 
 if __name__ == '__main__':

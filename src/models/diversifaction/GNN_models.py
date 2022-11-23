@@ -1,3 +1,4 @@
+import dgl.function as fn
 import itertools
 from builtins import len
 from itertools import combinations
@@ -28,9 +29,6 @@ class GraphSAGE(nn.Module):
         h = F.relu(h)
         h = self.conv2(g, h)
         return h
-
-
-import dgl.function as fn
 
 
 class DotPredictor(nn.Module):
@@ -76,7 +74,8 @@ class MLPPredictor(nn.Module):
 
 def compute_loss(pos_score, neg_score):
     scores = torch.cat([pos_score, neg_score])
-    labels = torch.cat([torch.ones(pos_score.shape[0]), torch.zeros(neg_score.shape[0])])
+    labels = torch.cat([torch.ones(pos_score.shape[0]),
+                       torch.zeros(neg_score.shape[0])])
     return F.binary_cross_entropy_with_logits(scores, labels)
 
 
@@ -90,7 +89,8 @@ def compute_auc(pos_score, neg_score):
 def train(model: GraphSAGE, predictor: Union[MLPPredictor, DotPredictor], graph: DGLHeteroGraph,
           pos_graph: DGLHeteroGraph, neg_graph: DGLHeteroGraph, lr: Optional[float] = 0.01, epochs: Optional[int] = 100,
           verbose: Optional[bool] = False) -> Tuple[GraphSAGE, Union[MLPPredictor, DotPredictor], torch.Tensor]:
-    optimizer = torch.optim.Adadelta(itertools.chain(model.parameters(), predictor.parameters()), lr=lr)
+    optimizer = torch.optim.Adadelta(itertools.chain(
+        model.parameters(), predictor.parameters()), lr=lr)
     for epoch in range(epochs):
         h = model(graph, graph.ndata['feat'])
         pos_score = predictor(pos_graph, h)
@@ -107,7 +107,8 @@ def train(model: GraphSAGE, predictor: Union[MLPPredictor, DotPredictor], graph:
 
 def predict(candidates: NDArray, features: torch.tensor, predictor: Union[MLPPredictor, DotPredictor],
             hidden_dim: torch.Tensor, n: Optional[int] = 100) -> ArrayLike:
-    candidates_graph = dgl.graph((candidates[:, 0].flatten(), candidates[:, 1].flatten()), num_nodes=features.shape[0])
+    candidates_graph = dgl.graph((candidates[:, 0].flatten(
+    ), candidates[:, 1].flatten()), num_nodes=features.shape[0])
     candidates_graph.ndata['feat'] = features
     candidates_preds = predictor(candidates_graph, hidden_dim)
     predictions = candidates_preds.detach().numpy()

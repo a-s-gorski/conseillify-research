@@ -1,21 +1,23 @@
 import logging
 import os
+import random
 import string
+import sys
 import time
 from collections import defaultdict
 from random import sample
 from typing import Dict, List, Optional, Set
 
 import click
-import dill
 import gensim
 import hdbscan
 import numpy as np
 import pandas as pd
 from gensim.models import Word2Vec
 from nltk.corpus import stopwords
-from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.tokenize import word_tokenize
 from numpy.typing import ArrayLike, NDArray
+from sklearn.cluster import Birch
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 
@@ -48,37 +50,16 @@ def prepare_embedding_dict(model: Word2Vec) -> Dict[str, ArrayLike]:
 
 def embed_playlists(embeddings_dict: Dict[str, ArrayLike], playlist_names: List, playlist_len=10):
     def embed_playlist(name):
-        return embeddings_dict[name]
+        if name in embeddings_dict:
+            return embeddings_dict[name]
+        else:
+            return ""
     embedded_playlists = [np.array(list(
         map(embed_playlist, name[:playlist_len]))).flatten() for name in playlist_names]
     max_name_len = max(list(map(len, embedded_playlists)))
     embedded_playlists = np.array(list(map(lambda embedding: np.pad(
         embedding, (0, max_name_len - len(embedding)), 'constant', constant_values=(0, 0)), embedded_playlists)))
     return embedded_playlists
-
-
-def recommend_coldstart_cluster(clusterer: hdbscan.HDBSCAN, pca: PCA, playlist_name: str, embeddings_dict: Dict, max_name_len=100) -> int:
-    playlist_names = process_playlist_names([playlist_name, ])[0]
-    playlist_names = playlist_names[:10]
-    playlist_embedding = np.array(
-        list(map(lambda name: embeddings_dict[name], playlist_names))).flatten()
-    playlist_embedding = playlist_embedding[:max_name_len]
-    playlist_embedding = np.pad(playlist_embedding, (0, max_name_len - len(
-        playlist_embedding)), 'constant', constant_values=(0, 0)).reshape(1, -1)
-    playlist_embedding = pca.transform(playlist_embedding)
-    approx_labels, approx_probs = hdbscan.approximate_predict(
-        clusterer, playlist_embedding)
-    probs = hdbscan.membership_vector(clusterer, playlist_embedding)
-    if not approx_labels:
-        return np.argmax(probs)
-    if approx_labels[0] == -1:
-        return np.argmax(probs)
-    return approx_labels[0]
-
-
-def select_n_from_cluster(clustered_tracks: Dict[int, Set[int]], cluster_id: int, n: int = 50):
-    tracks_set = clustered_tracks[cluster_id]
-    return sample(tracks_set, n)
 
 
 def cluster_tracks(labels: List[int], playlists: List[List[int]]) -> Dict[int, Set[int]]:
@@ -107,28 +88,30 @@ def missing_encoding():
     return ""
 
 
-class ColdstartRecommender:
-    def __init__(self, embeddings_dict: Dict[str, List[int]], pca: PCA, clusterer: hdbscan.HDBSCAN, clustered_tracks: Dict[int, Set[int]], songs_encodings: Dict[int, str]):
-        self._embeddings_dict = defaultdict(missing_embedding, embeddings_dict)
-        self._pca = pca
-        self._clusterer = clusterer
-        self._clustered_tracks = defaultdict(missing_track, clustered_tracks)
-        self._songs_encodings = defaultdict(missing_encoding, songs_encodings)
-
-    def recommend_n_tracks(self, playlist_name: str, n: Optional[int] = 50):
-        cluster_id = recommend_coldstart_cluster(
-            self._clusterer, self._pca, playlist_name, self._embeddings_dict)
-        logging.info(f"Cluster_id: {cluster_id}")
-        track_ids = select_n_from_cluster(self._clustered_tracks, cluster_id)
-        logging.info(f"track_ids: {track_ids}")
-        track_uris = [self._songs_encodings[track_id]
-                      for track_id in track_ids if track_id in self._songs_encodings]
-        logging.info(f"Track_uris: {track_uris}")
-        return track_uris
+def prepare_playlist(embeddings_dict, pca, user_playlist) -> NDArray:
+    processed_playlist = process_playlist_names(user_playlist)
+    e_user_playlist = embed_playlists(embeddings_dict, processed_playlist)
+    e_user_playlist = list(map(lambda p: p[:100], e_user_playlist))
+    e_user_playlist = np.array(list(map(lambda p: np.pad(
+        p, (0, 100-len(p)), 'constant', constant_values=(0, 0)), e_user_playlist)))
+    rd_user_playlist = pca.transform(e_user_playlist)
+    return rd_user_playlist
 
 
-def missing_song_encoding(track):
-    return -1
+def cluster_labels(labels: List[int], playlists: NDArray, songs_encodings: Dict[int, str]) -> Dict[int, Set[str]]:
+    clustered_tracks = {}
+    for playlist_index, (cluster_index, playlist) in tqdm(enumerate(zip(labels, playlists)), total=playlists.shape[0]):
+        if not cluster_index in clustered_tracks:
+            clustered_tracks[cluster_index] = set()
+        for track in playlist:
+            if track != -1:
+                clustered_tracks[cluster_index].add(songs_encodings[track])
+    return clustered_tracks
+
+
+def recommend_n_tracks(brc: Birch, clustered_tracks: Dict[int, Set], processed_playlist: List[float], n_recommendations: Optional[int] = 100):
+    cluster_id = brc.predict(processed_playlist)[0]
+    return random.sample(tuple(clustered_tracks[cluster_id]), min(n_recommendations, len(clustered_tracks[cluster_id])))
 
 
 @click.command()
@@ -161,44 +144,42 @@ def main(input_filepath: str, model_filepath: str):
     logging.info(
         f"Data processing execution time {time.time() - data_processing_start}")
 
-    training_start = time.time()
-    logging.info("Reducing dimensionality using PCA")
-    pca = PCA(n_components=3)
-    reduced_pn = pca.fit_transform(embedded_playlists)[:200000, :]
+    logging.info("Reducing dimensionality")
+    pca = PCA(n_components=10)
+    reduced_pn = pca.fit_transform(embedded_playlists)
 
-    logging.info("Performing clustering")
-    clusterer = hdbscan.HDBSCAN(
-        cluster_selection_epsilon=1, prediction_data=True, alpha=0.5)
+    logging.info("Getting cluster number with hdbscan")
+    clustering_start = time.time()
+    clusterer = hdbscan.HDBSCAN(cluster_selection_epsilon=1)
     clusterer.fit(reduced_pn)
-    labels = clusterer.labels_
-    clustered_tracks = cluster_tracks(labels, playlists)
-    logging.info(f"Training time: {time.time() - training_start}")
+    print(clusterer.labels_[:100])
+    logging.info(f"HDBSCAN execution time {time.time()-clustering_start}")
+    n_labels = len(set(clusterer.labels_))
+    logging.info(f"Clusters: {n_labels}")
 
-    logging.info("Building coldstart model")
-    coldstart_model = ColdstartRecommender(
-        embeddings_dict, pca, clusterer, clustered_tracks, songs_encodings)
+    logging.info("Birch clustering")
+    brc = Birch(n_clusters=n_labels)
+    labels = brc.fit_predict(reduced_pn)
+    clustered_tracks = cluster_labels(labels, playlists, songs_encodings)
 
-    recommendation_time = time.time()
-    logging.info("Performing inference")
-    print(coldstart_model.recommend_n_tracks("rock metal disco"))
-    logging.info(
-        f"Recommendation execution time: {time.time() - recommendation_time}")
-    logging.info("Saving artifacts")
+    logging.info("Starting user processing")
+    inf_start = time.time()
+    user_playlist = ["rock and roll"]
+    rd_user_playlist = prepare_playlist(embeddings_dict, pca, user_playlist)
+    logging.info(f"Reduced playlist features {rd_user_playlist}")
 
-    with open(os.path.join(model_filepath, "embedding.pkl"), 'wb') as file:
-        dill.dump(embeddings_dict, file)
-    print(len(set(list(songs_encodings.keys()))))
-    save_pickle(embeddings_dict, os.path.join(model_filepath, "embedding.pkl"))
+    recommendations = recommend_n_tracks(
+        brc, clustered_tracks, rd_user_playlist, 50)
+    logging.info(f"Recommended tracks {recommendations}")
+    logging.info(f"Inference execution time {time.time() - inf_start}")
+    logging.info(f"Saving artifacts to {model_filepath}")
+    sys.setrecursionlimit(10000)
+    save_pickle(brc, os.path.join(model_filepath, "brc.pkl"))
     save_pickle(pca, os.path.join(model_filepath, "pca.pkl"))
-    save_pickle(clusterer, os.path.join(model_filepath, "clusterer.pkl"))
+    save_pickle(embeddings_dict, os.path.join(
+        model_filepath, "embeddings_dict.pkl"))
     save_pickle(clustered_tracks, os.path.join(
         model_filepath, "clustered_tracks.pkl"))
-    save_pickle(songs_encodings, os.path.join(
-        model_filepath, "songs_encodings.pkl"))
-
-
-# KNN / FLANN, WARD-clustering, ew knn
-# https://en.wikipedia.org/wiki/Ward%27s_method
 
 
 if __name__ == '__main__':

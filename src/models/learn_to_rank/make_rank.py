@@ -1,7 +1,7 @@
-from collections import defaultdict
 import logging
 import os
 from builtins import len
+from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
 import click
@@ -23,6 +23,11 @@ def extract_relevant(playlists: NDArray, tracks: List[int], songs_features: NDAr
         if track == -1 or track not in track_encodings:
             return -1
         return track_encodings[track]
+    playlist_len = min(list(map(len, playlists)))
+    user_playlist = user_playlist[:len(playlists[0])]
+    user_playlist = np.pad(user_playlist, (0, playlist_len -
+                           len(user_playlist)), 'constant', constant_values=(0, 0))
+
     tracks_set = set(tracks)
     relevant_playlists = [user_playlist, ]
     # extracting relevant playlists
@@ -30,8 +35,7 @@ def extract_relevant(playlists: NDArray, tracks: List[int], songs_features: NDAr
         if set(playlist) & set(tracks_set):
             relevant_playlists.append(playlist)
     # extracting all relevant tracks
-    print(f"len_playlists { set([len(p) for p in playlists])} len_user_playlist {len(user_playlist)}")
-    print()    
+
     relevant_playlists = np.array(relevant_playlists)
 
     relevant_tracks = set(relevant_playlists.flatten())

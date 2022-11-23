@@ -57,6 +57,16 @@ generate_candidates_pipeline:
 	data/processed/songs_features.csv \
 	data/processed/playlists.csv
 
+test_generate_candidates:
+	$(PYTHON_INTERPRETER) -m tests.models.candidate_generation.test_candidate_generation \
+	models/candidate_generation/candidate_generator.pkl \
+	data/dataset/dataset_lightfm \
+	data/processed/songs_encodings.csv \
+	data/processed/songs_features.csv \
+	data/processed/playlists.csv \
+	data/processed/test_playlists.csv \
+	reports/eval_generate_candidates
+
 rank:
 	$(PYTHON_INTERPRETER) -m src.models.learn_to_rank.make_rank data/predictions/candidate_generation \
 	models/learn_to_rank data/predictions/ranking
@@ -76,9 +86,16 @@ diversify_pipeline:
 coldstart:
 	$(PYTHON_INTERPRETER) -m src.models.coldstart.cluster_coldstart data/processed models/coldstart
 
+coldstart_birch:
+	$(PYTHON_INTERPRETER) -m src.models.coldstart.cluster_birch_coldstart data/processed models/coldstart_birch
+
 coldstart_pipeline:
 	$(PYTHON_INTERPRETER) -m src.models.coldstart.coldstart_pipeline models/coldstart/embedding.pkl models/coldstart/pca.pkl \
-	models/coldstart/clusterer.pkl models/coldstart/clustered_tracks.pkl models/coldstart/clustered_tracks.pkl
+	models/coldstart/clusterer.pkl models/coldstart/clustered_tracks.pkl models/coldstart/songs_encodings.pkl
+
+coldstart_birch_pipeline:
+	$(PYTHON_INTERPRETER) -m src.models.coldstart.coldstart_birch_pipeline models/coldstart_birch/embeddings_dict.pkl \
+	models/coldstart_birch/pca.pkl models/coldstart_birch/brc.pkl models/coldstart_birch/clustered_tracks.pkl
 
 
 recommendation_pipeline:
@@ -88,6 +105,16 @@ recommendation_pipeline:
 	data/processed/songs_encodings.csv \
 	data/processed/songs_features.csv \
 	data/processed/playlists.csv
+
+test_recommendation_pipeline:
+	$(PYTHON_INTERPRETER) -m tests.models.rank_and_diversify.test_recommendation_pipeline \
+	models/candidate_generation/candidate_generator.pkl \
+	data/dataset/dataset_lightfm \
+	data/processed/songs_encodings.csv \
+	data/processed/songs_features.csv \
+	data/processed/playlists.csv \
+	data/processed/test_playlists.csv \
+	reports/eval_rank_and_diversify
 
 ## Delete all compiled Python files
 clean:
