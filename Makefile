@@ -97,6 +97,14 @@ coldstart_birch_pipeline:
 	$(PYTHON_INTERPRETER) -m src.models.coldstart.coldstart_birch_pipeline models/coldstart_birch/embeddings_dict.pkl \
 	models/coldstart_birch/pca.pkl models/coldstart_birch/brc.pkl models/coldstart_birch/clustered_tracks.pkl
 
+rerank:
+	$(PYTHON_INTERPRETER) -m src.models.reranking.rerank data/processed models/reranking
+
+rerank_pipeline:
+	$(PYTHON_INTERPRETER) -m src.models.reranking.rerank_pipeline \
+	models/reranking/uris_dict.pkl \
+	models/reranking/desired_distribution.pkl \
+
 
 recommendation_pipeline:
 	$(PYTHON_INTERPRETER) -m src.pipeline.recommendation_pipeline \
