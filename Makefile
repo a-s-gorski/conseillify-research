@@ -134,7 +134,30 @@ test_reranked_pipeline:
 	data/processed/test_playlists.csv \
 	models/reranking/uris_dict.pkl \
 	models/reranking/desired_distribution.pkl \
-	reports/eval_rank_and_diversify
+	reports/eval_rank_and_diversify \
+	models/functions
+
+copy_artifacts:
+	cp models/candidate_generation/candidate_generator.pkl serving/artifacts
+	cp data/dataset/dataset_lightfm serving/artifacts
+	cp data/processed/songs_encodings.csv serving/artifacts
+	cp data/processed/songs_features.csv serving/artifacts
+	cp data/processed/playlists.csv serving/artifacts
+	cp models/reranking/uris_dict.pkl serving/artifacts
+	cp models/reranking/desired_distribution.pkl serving/artifacts
+	cp models/coldstart_birch/brc.pkl serving/artifacts
+	cp models/coldstart_birch/clustered_tracks.pkl serving/artifacts
+	cp models/coldstart_birch/embeddings_dict.pkl serving/artifacts
+	cp models/coldstart_birch/pca.pkl serving/artifacts
+	cp models/functions/candidate_generation_component.pkl serving/artifacts
+	cp models/functions/prepare_test_playlist.pkl serving/artifacts
+	cp models/functions/load_songs_encodings.pkl serving/artifacts
+	cp models/functions/rank_and_diversify_component.pkl serving/artifacts
+	cp models/functions/recommendation_reranking_component.pkl serving/artifacts
+
+api:
+	uvicorn -m serving.api:app --host 0.0.0.0 --port 80
+
 
 ## Delete all compiled Python files
 clean:

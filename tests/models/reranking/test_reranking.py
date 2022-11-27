@@ -2,7 +2,6 @@ import logging
 import os
 import sys
 from collections import defaultdict
-from typing import List, Set
 
 import click
 import numpy as np
@@ -14,6 +13,10 @@ from src.models.diversifaction.diversify_pipeline import \
     rank_and_diversify_component
 from src.models.reranking.rerank_pipeline import recommendation_reranking_component
 from tqdm import tqdm
+import dill
+dill.settings['recurse'] = True
+
+
 
 from ..candidate_generation.test_candidate_generation import (
     calculate_map_at_k, calculate_mar_at_k, coverage, prepare_test_playlist,
@@ -32,7 +35,8 @@ sys.path.append("....")
 @click.argument('uris_dict_filepath', type=click.Path(exists=True))
 @click.argument('desired_distribution_filepath', type=click.Path(exists=True))
 @click.argument('report_path', type=click.Path(exists=True))
-def main(model_path: str, dataset_path: str, encodings_path: str, features_path: str, playlists_path: str, test_playlists_path: str, uris_dict_filepath:str, desired_distribution_filepath: str, report_path: str):
+@click.argument('dill_functions_output', type=click.Path(exists=True))
+def main(model_path: str, dataset_path: str, encodings_path: str, features_path: str, playlists_path: str, test_playlists_path: str, uris_dict_filepath:str, desired_distribution_filepath: str, report_path: str, dill_functions_output: str):
     N_candidates = 2500
     N_tracks = [10, 20, 30, 50, 70, 100, 150, 200, 300, 450, 500, 600,
                 750, 800, 1000, 1250, 1500, 1750, 2000, 2100, 2200, 2300, 2400, 2500]
@@ -66,6 +70,14 @@ def main(model_path: str, dataset_path: str, encodings_path: str, features_path:
         maps_at_k.append(calculate_map_at_k(ground_truths, preds))
         mars_at_k.append(calculate_mar_at_k(ground_truths, preds))
         coverages.append(coverage(all_tracks, preds))
+
+    logging.info("Saving artifacts")
+    dill.dump(prepare_test_playlist, open(os.path.join(dill_functions_output, 'prepare_test_playlist.pkl'), 'wb'))
+    dill.dump(candidate_generation_component, open(os.path.join(dill_functions_output, 'candidate_generation_component.pkl'), 'wb'))
+    dill.dump(rank_and_diversify_component, open(os.path.join(dill_functions_output, 'rank_and_diversify_component.pkl'), 'wb'))
+    dill.dump(recommendation_reranking_component, open(os.path.join(dill_functions_output, 'recommendation_reranking_component.pkl'), 'wb'))
+    dill.dump(load_songs_encodings, open(os.path.join(dill_functions_output, 'load_songs_encodings.pkl'), 'wb'))
+
 
     logging.info(f"Maps_at_k{maps_at_k}")
     logging.info(f"Mars_at_k{mars_at_k}")

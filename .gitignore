@@ -93,3 +93,4 @@ kaggle.json
 
 # data files results
 data/dataset/*
+artifacts/
