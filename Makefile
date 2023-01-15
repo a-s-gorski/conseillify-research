@@ -42,7 +42,6 @@ data:
 	# unzip data/external/spotify_million_playlist_dataset_challenge.zip -d data/raw/spotify_million_playlist_dataset_challange
 	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/processed
 
-# features: requirements
 features:
 	$(PYTHON_INTERPRETER) -m src.features.build_features data/processed data/dataset
 
