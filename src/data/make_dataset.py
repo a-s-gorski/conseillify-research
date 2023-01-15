@@ -1,9 +1,9 @@
 import json
 import logging
 import os
-from enum import unique
+from collections import defaultdict
 from pathlib import Path
-from typing import Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Dict, List, Tuple
 
 import click
 import numpy as np
@@ -17,9 +17,13 @@ SONG_FEATURES_COLS = ["danceability", "energy", "key", "loudness", "mode", "spee
                       "instrumentalness", "liveness", "valence", "tempo"]
 
 
-def load_songs_features(input_path: str) -> Dict[str, np.ndarray]:
+def empty_track():
+    return -1
+
+
+def load_songs_features(input_path: str) -> Dict[str, NDArray]:
     songs_features_df = pd.read_csv(input_path)
-    songs_features_dict = {}
+    songs_features_dict = defaultdict(empty_track)
     for _, row in tqdm(songs_features_df.iterrows(), total=songs_features_df.shape[0]):
         songs_features_dict[row[1]] = np.array(row[2:-2].to_list())
     return songs_features_dict
@@ -33,8 +37,9 @@ def save_songs_encodings(songs_encodings: Dict, output_path: str):
 
 def load_songs_encodings(input_path: str) -> Dict[str, int]:
     songs_encodings_df = pd.read_csv(input_path, index_col=False)
-    songs_encodings = {track_uri: track_encoding for track_uri, track_encoding in
-                       zip(songs_encodings_df.track_uris, songs_encodings_df.track_encoding)}
+    songs_encodings = defaultdict(empty_track)
+    for track_uri, track_encoding in zip(songs_encodings_df.track_uris, songs_encodings_df.track_encoding):
+        songs_encodings[track_uri] = track_encoding
     return songs_encodings
 
 
@@ -44,19 +49,17 @@ def add_track_ids(songs_features: pd.DataFrame, song_encodings: Dict[str, int]) 
     return songs_features
 
 
-def load_playlists(songs_encodings: Dict, input_path: str) -> List[List[int]]:
+def load_playlists(songs_encodings: Dict, input_path: str) -> Tuple[List[List[int]], List[str]]:
     playlists = []
+    playlist_names = []
     for file in tqdm(os.listdir(input_path)):
         with open(os.path.join(input_path, file)) as json_file:
             file_data = json.load(json_file)
             for playlist in file_data["playlists"]:
-                temp_playlist = []
-                for track in playlist["tracks"]:
-                    track_uri = track["track_uri"]
-                    if track_uri in songs_encodings:
-                        temp_playlist.append(songs_encodings[track_uri])
-                playlists.append(temp_playlist)
-    return playlists
+                playlist_names.append(playlist["name"])
+                playlists.append([songs_encodings[track["track_uri"]]
+                                 for track in playlist["tracks"]])
+    return playlists, playlist_names
 
 
 def process_playlists(playlists: List[List[int]]) -> NDArray[np.uint64]:
@@ -65,7 +68,7 @@ def process_playlists(playlists: List[List[int]]) -> NDArray[np.uint64]:
     for playlist in tqdm(playlists):
         playlist = np.array(playlist, dtype=np.int64)
         playlist = np.pad(playlist, (0, max_playlist_len -
-                          len(playlist)), mode='constant')
+                          len(playlist)), mode='constant', constant_values=(-1, -1))
         processed_playlists.append(playlist)
     return np.array(processed_playlists)
 
@@ -93,8 +96,9 @@ def main(input_filepath, output_filepath):
     songs_features_df.drop(columns=["type"], inplace=True)
 
     logger.info("creating songs_encodings")
-    songs_encodings = {track_uri: index + 1 for index,
-                       track_uri in enumerate(songs_features_df.track_uri)}
+    songs_encodings = defaultdict(empty_track)
+    for index, track_uri in enumerate(songs_features_df.track_uri):
+        songs_encodings[track_uri] = index
 
     logger.info("adding song_encoding to song_features")
     songs_features_df = add_track_ids(songs_features_df, songs_encodings)
@@ -108,15 +112,17 @@ def main(input_filepath, output_filepath):
         output_filepath, "songs_encodings.csv"))
 
     logger.info("loading_playlists")
-    playlists = load_playlists(songs_encodings, os.path.join(
+    playlists, playlist_names = load_playlists(songs_encodings, os.path.join(
         input_filepath, "spotify_million_playlist_dataset/data"))
 
     logger.info("processing tracks")
     playlists = process_playlists(playlists)
 
     logger.info("splitting playlists")
-    train_p, holdout_p = train_test_split(playlists, test_size=0.0001)
-    val_p, test_p = train_test_split(holdout_p, test_size=0.5)
+    train_p, holdout_p, train_names, holdout_names = train_test_split(
+        playlists, playlist_names, test_size=0.0001)
+    val_p, test_p, val_names, test_names = train_test_split(
+        holdout_p, holdout_names, test_size=0.5)
 
     logger.info("saving_playlists")
     save_playlists(playlists, os.path.join(output_filepath, "playlists.csv"))
@@ -124,6 +130,13 @@ def main(input_filepath, output_filepath):
         output_filepath, "train_playlists.csv"))
     save_playlists(val_p, os.path.join(output_filepath, "val_playlists.csv"))
     save_playlists(test_p, os.path.join(output_filepath, "test_playlists.csv"))
+    pd.Series(playlist_names).to_csv(
+        os.path.join(output_filepath, "playlist_names.csv"))
+    pd.Series(train_names).to_csv(
+        os.path.join(output_filepath, "train_names.csv"))
+    pd.Series(test_names).to_csv(
+        os.path.join(output_filepath, "test_names.csv"))
+    pd.Series(val_names).to_csv(os.path.join(output_filepath, "val_names.csv"))
 
 
 if __name__ == '__main__':

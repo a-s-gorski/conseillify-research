@@ -1,8 +1,6 @@
 import logging
 from builtins import len
 from datetime import datetime
-from json import load
-from pydoc import cli
 from typing import Any, Dict, List, Optional, Tuple
 
 import click
@@ -17,8 +15,10 @@ from .generate_candidates import extract_n_tracks, extract_relevant
 
 def encode_tracks(tracks: List[str], songs_encodings: Dict[str, int]) -> List[int]:
     tracks = [songs_encodings[track]
-              for track in tracks if track in songs_encodings]
-    tracks = np.pad(tracks, (0, 375-len(tracks)), constant_values=(0, 0))
+              for track in tracks]
+    tracks = tracks[:376]
+    tracks = np.pad(tracks, (0, 376-len(tracks)),
+                    mode='constant', constant_values=(-1, -1))
     return tracks
 
 
@@ -29,25 +29,27 @@ def decode_tracks(tracks: List[int], songs_encodings: Dict[str, int]) -> List[st
 
 
 def build_user_tuples(tracks: List[int]):
-    return [(0, track_id, 1) for track_id in tracks if track_id != 0]
+    return [(0, track_id, 1) for track_id in tracks if track_id != -1]
 
 
 def candidate_generation_component(model_path: str, dataset_path: str, encodings_path: str, user_playlist: List[str], features_path: str, playlists_path: str, N: Optional[int] = 1000) -> Tuple[Any, ArrayLike, NDArray, List[int], List[str]]:
     model = load_pickle(model_path)
     dataset = load_pickle(dataset_path)
-    encodings = load_songs_encodings(encodings_path)
+    encodings_uri = load_songs_encodings(encodings_path)
     playlists = pd.read_csv(playlists_path, index_col=False).to_numpy()
     features = pd.read_csv(features_path).to_numpy()
-    encoded_tracks = encode_tracks(user_playlist, encodings)
+    encoded_tracks = encode_tracks(user_playlist, encodings_uri)
     tuples = build_user_tuples(encoded_tracks)
     interacions, _ = dataset.build_interactions(tuples)
     tracks = extract_n_tracks(model, 0, interacions.shape[0]+1, N)
-    decoded_tracks = decode_tracks(tracks, encodings)
+    decoded_tracks = decode_tracks(tracks, encodings_uri)
     relevant_playlists, tracks, features, encodings = extract_relevant(
         playlists, tracks, features, encoded_tracks)
     user_playlist = np.array([encodings[track]
-                     for track in user_playlist if track in encodings])
-    user_playlist = np.pad(user_playlist, (0, 375-len(user_playlist)), constant_values=(0,0))
+                              for track in encoded_tracks])
+    user_playlist = user_playlist[:375]
+    user_playlist = np.pad(user_playlist, (0, max(
+        0, 375-len(user_playlist))), mode='constant', constant_values=(-1, -1))
 
     return relevant_playlists, tracks, features, user_playlist, decoded_tracks
 
@@ -76,9 +78,8 @@ def main(model_path: str, dataset_path: str, encodings_path: str, features_path:
     start = datetime.now()
     relevant_playlists, tracks, features, user_playlist, decoded_track_uris = candidate_generation_component(
         model_path, dataset_path, encodings_path, user_playlist, features_path, playlists_path)
-    
-    logging.info(f"Component execution time {datetime.now() - start}")
 
+    logging.info(f"Component execution time {datetime.now() - start}")
 
 
 if __name__ == '__main__':

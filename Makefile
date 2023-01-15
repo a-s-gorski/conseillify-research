@@ -24,25 +24,24 @@ endif
 requirements: test_environment
 	$(PYTHON_INTERPRETER) -m pip install -U pip setuptools wheel
 	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
+	$(PYTHON_INTERPRETER) -m nltk.downloader all
 
 ## Setup file structure for storing data
 folder_structure:
-	mkdir -p {data/dataset,data/external,dta/predictions,data/processed/,data/predictions/candidate_generation,data/predictions/learn_to_rank,data/raw}
-
+	mkdir -p {data/dataset,data/external,data/predictions,data/processed/,data/predictions/candidate_generation,data/predictions/learn_to_rank,data/raw,data/predictions/diversification}
 ## Make Dataset
 # data: requirements
 data:
-	export $(xargs < .env)
-	kaggle login
-	kaggle datasets download adamsebastiangorski/spotifysongfeatures -p data/external
-	unzip data/external/spotifysongfeatures.zip -d data/raw/spotifysongfeatures
-	aicrowd login
-	aicrowd dataset download --challenge spotify-million-playlist-dataset-challenge -o data/external
-	unzip data/external/spotify_million_playlist_dataset.zip -d data/raw/spotify_million_playlist_dataset
-	unzip data/external/spotify_million_playlist_dataset_challenge.zip -d data/raw/spotify_million_playlist_dataset_challange
+	# export $(xargs < .env)
+	# kaggle login
+	# kaggle datasets download adamsebastiangorski/spotifysongfeatures -p data/external
+	# unzip data/external/spotifysongfeatures.zip -d data/raw/spotifysongfeatures
+	# aicrowd login
+	# aicrowd dataset download --challenge spotify-million-playlist-dataset-challenge -o data/external
+	# unzip data/external/spotify_million_playlist_dataset.zip -d data/raw/spotify_million_playlist_dataset
+	# unzip data/external/spotify_million_playlist_dataset_challenge.zip -d data/raw/spotify_million_playlist_dataset_challange
 	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/processed
 
-# features: requirements
 features:
 	$(PYTHON_INTERPRETER) -m src.features.build_features data/processed data/dataset
 
@@ -57,6 +56,16 @@ generate_candidates_pipeline:
 	data/processed/songs_features.csv \
 	data/processed/playlists.csv
 
+test_generate_candidates:
+	$(PYTHON_INTERPRETER) -m tests.models.candidate_generation.test_candidate_generation \
+	models/candidate_generation/candidate_generator.pkl \
+	data/dataset/dataset_lightfm \
+	data/processed/songs_encodings.csv \
+	data/processed/songs_features.csv \
+	data/processed/playlists.csv \
+	data/processed/test_playlists.csv \
+	reports/eval_generate_candidates
+
 rank:
 	$(PYTHON_INTERPRETER) -m src.models.learn_to_rank.make_rank data/predictions/candidate_generation \
 	models/learn_to_rank data/predictions/ranking
@@ -65,6 +74,37 @@ rank_pipeline:
 	$(PYTHON_INTERPRETER) -m src.models.learn_to_rank.make_rank_pipeline data/predictions/candidate_generation/features.csv \
 	data/predictions/candidate_generation/playlists.csv data/predictions/candidate_generation/user_playlist.csv
 
+diversify:
+	$(PYTHON_INTERPRETER) -m src.models.diversifaction.diversify data/predictions/ranking \
+	models/diversification data/predictions/diversification 
+
+diversify_pipeline:
+	$(PYTHON_INTERPRETER) -m src.models.diversifaction.diversify_pipeline data/predictions/candidate_generation/features.csv \
+	data/predictions/candidate_generation/playlists.csv data/predictions/candidate_generation/user_playlist.csv
+
+coldstart:
+	$(PYTHON_INTERPRETER) -m src.models.coldstart.cluster_coldstart data/processed models/coldstart
+
+coldstart_birch:
+	$(PYTHON_INTERPRETER) -m src.models.coldstart.cluster_birch_coldstart data/processed models/coldstart_birch
+
+coldstart_pipeline:
+	$(PYTHON_INTERPRETER) -m src.models.coldstart.coldstart_pipeline models/coldstart/embedding.pkl models/coldstart/pca.pkl \
+	models/coldstart/clusterer.pkl models/coldstart/clustered_tracks.pkl models/coldstart/songs_encodings.pkl
+
+coldstart_birch_pipeline:
+	$(PYTHON_INTERPRETER) -m src.models.coldstart.coldstart_birch_pipeline models/coldstart_birch/embeddings_dict.pkl \
+	models/coldstart_birch/pca.pkl models/coldstart_birch/brc.pkl models/coldstart_birch/clustered_tracks.pkl
+
+rerank:
+	$(PYTHON_INTERPRETER) -m src.models.reranking.rerank data/processed models/reranking
+
+rerank_pipeline:
+	$(PYTHON_INTERPRETER) -m src.models.reranking.rerank_pipeline \
+	models/reranking/uris_dict.pkl \
+	models/reranking/desired_distribution.pkl \
+
+
 recommendation_pipeline:
 	$(PYTHON_INTERPRETER) -m src.pipeline.recommendation_pipeline \
 	models/candidate_generation/candidate_generator.pkl \
@@ -72,6 +112,51 @@ recommendation_pipeline:
 	data/processed/songs_encodings.csv \
 	data/processed/songs_features.csv \
 	data/processed/playlists.csv
+
+test_recommendation_pipeline:
+	$(PYTHON_INTERPRETER) -m tests.models.rank_and_diversify.test_recommendation_pipeline \
+	models/candidate_generation/candidate_generator.pkl \
+	data/dataset/dataset_lightfm \
+	data/processed/songs_encodings.csv \
+	data/processed/songs_features.csv \
+	data/processed/playlists.csv \
+	data/processed/test_playlists.csv \
+	reports/eval_rank_and_diversify
+
+test_reranked_pipeline:
+	$(PYTHON_INTERPRETER) -m tests.models.reranking.test_reranking \
+	models/candidate_generation/candidate_generator.pkl \
+	data/dataset/dataset_lightfm \
+	data/processed/songs_encodings.csv \
+	data/processed/songs_features.csv \
+	data/processed/playlists.csv \
+	data/processed/test_playlists.csv \
+	models/reranking/uris_dict.pkl \
+	models/reranking/desired_distribution.pkl \
+	reports/eval_rank_and_diversify \
+	models/functions
+
+copy_artifacts:
+	cp models/candidate_generation/candidate_generator.pkl serving/artifacts
+	cp data/dataset/dataset_lightfm serving/artifacts
+	cp data/processed/songs_encodings.csv serving/artifacts
+	cp data/processed/songs_features.csv serving/artifacts
+	cp data/processed/playlists.csv serving/artifacts
+	cp models/reranking/uris_dict.pkl serving/artifacts
+	cp models/reranking/desired_distribution.pkl serving/artifacts
+	cp models/coldstart_birch/brc.pkl serving/artifacts
+	cp models/coldstart_birch/clustered_tracks.pkl serving/artifacts
+	cp models/coldstart_birch/embeddings_dict.pkl serving/artifacts
+	cp models/coldstart_birch/pca.pkl serving/artifacts
+	cp models/functions/candidate_generation_component.pkl serving/artifacts
+	cp models/functions/prepare_test_playlist.pkl serving/artifacts
+	cp models/functions/load_songs_encodings.pkl serving/artifacts
+	cp models/functions/rank_and_diversify_component.pkl serving/artifacts
+	cp models/functions/recommendation_reranking_component.pkl serving/artifacts
+
+api:
+	uvicorn -m serving.api:app --host 0.0.0.0 --port 80
+
 
 ## Delete all compiled Python files
 clean:

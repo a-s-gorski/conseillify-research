@@ -1,6 +1,7 @@
 import logging
 import os
 from builtins import len
+from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
 import click
@@ -11,15 +12,22 @@ from lightfm.data import Dataset
 from numpy.typing import ArrayLike, NDArray
 from scipy.sparse import coo_matrix
 
+from src.data.make_dataset import empty_track
+
 from ...features.build_features import save_pickle
 from ..candidate_generation.generate_candidates import extract_n_tracks
 
 
 def extract_relevant(playlists: NDArray, tracks: List[int], songs_features: NDArray, user_playlist: ArrayLike) -> Tuple[Any, ArrayLike, NDArray, Dict[Any, int]]:
     def encode(track_encodings: Dict, track: int):
-        if track == 0 or track not in track_encodings:
-            return 0
+        if track == -1 or track not in track_encodings:
+            return -1
         return track_encodings[track]
+    playlist_len = min(list(map(len, playlists)))
+    user_playlist = user_playlist[:len(playlists[0])]
+    user_playlist = np.pad(user_playlist, (0, playlist_len -
+                           len(user_playlist)), 'constant', constant_values=(0, 0))
+
     tracks_set = set(tracks)
     relevant_playlists = [user_playlist, ]
     # extracting relevant playlists
@@ -27,12 +35,14 @@ def extract_relevant(playlists: NDArray, tracks: List[int], songs_features: NDAr
         if set(playlist) & set(tracks_set):
             relevant_playlists.append(playlist)
     # extracting all relevant tracks
+
     relevant_playlists = np.array(relevant_playlists)
 
     relevant_tracks = set(relevant_playlists.flatten())
-    relevant_tracks.discard(0)
-    tracks_encodings = {track: index + 1 for index,
-                        track in enumerate(relevant_tracks)}
+    relevant_tracks.discard(-1)
+    tracks_encodings = defaultdict(empty_track)
+    for index, track in enumerate(relevant_tracks):
+        tracks_encodings[track] = index
     encode_vectorizer = np.vectorize(encode)
     relevant_playlists = encode_vectorizer(
         tracks_encodings, relevant_playlists)
@@ -51,10 +61,10 @@ def prepare_ranking(features: NDArray, playlists: NDArray, user_playlist: ArrayL
     N_USERS = playlists.shape[0]
     unique_tracks = set(playlists.flatten())
     unique_tracks.discard(0)
-    N_ITEMS = len(unique_tracks)
+    N_ITEMS = features.shape[0]
     N_FEATURES = features.shape[1]
     interactions_tuples = np.array([(user_id, track_id, 1) for user_id, playlist in enumerate(
-        playlists) for track_id in playlist if track_id != 0])
+        playlists) for track_id in playlist if track_id != -1])
     features_tuples = np.array([(item_id+1, {feature_id: feature_value})for item_id, f in enumerate(
         features[:, 1:12]) for feature_id, feature_value in enumerate(f)])
     logging.info(
@@ -63,7 +73,7 @@ def prepare_ranking(features: NDArray, playlists: NDArray, user_playlist: ArrayL
     logging.info("Setting up dataset")
     dataset = Dataset(item_identity_features=True)
     dataset.fit(users=np.arange(0, N_USERS), items=np.arange(
-        1, N_ITEMS+1), item_features=np.arange(0, N_FEATURES))
+        0, N_ITEMS+1), item_features=np.arange(0, N_FEATURES))
 
     logging.info("Builiding interactions")
     interactions, _ = dataset.build_interactions(interactions_tuples)
@@ -76,7 +86,7 @@ def prepare_ranking(features: NDArray, playlists: NDArray, user_playlist: ArrayL
 
     logging.info("Fitting user")
     user_playlist_tuples = [(0, track_id, 1)
-                            for track_id in user_playlist if track_id != 0]
+                            for track_id in user_playlist if track_id != -1]
     user_interactions, _ = dataset.build_interactions(user_playlist_tuples)
     model.fit_partial(user_interactions,
                       item_features=item_features, epochs=3, verbose=True)
@@ -95,7 +105,8 @@ def main(input_filepath: str, model_filepath: str, output_filepath: str):
         input_filepath, "playlists.csv"), index_col=False).to_numpy()
     user_playlist = pd.read_csv(os.path.join(
         input_filepath, "user_playlist.csv"), index_col=False).to_numpy()[:, 1].flatten()
-
+    user_playlist = np.pad(
+        user_playlist, (0, 376-len(user_playlist)), mode='constant', constant_values=(-1, -1))
     model, user_interactions = prepare_ranking(
         features, playlists, user_playlist)
 
@@ -109,7 +120,7 @@ def main(input_filepath: str, model_filepath: str, output_filepath: str):
     user_playlist = np.array([encodings[track]
                              for track in user_playlist if track in encodings])
     user_playlist = np.pad(
-        user_playlist, (0, 375-len(user_playlist)), constant_values=(0, 0))
+        user_playlist, (0, 376-len(user_playlist)), mode='constant', constant_values=(-1, -1))
 
     logging.info("Saving data")
     pd.DataFrame(relevant_playlists).to_csv(

@@ -3,7 +3,6 @@
 
 # external requirements
 click~=7.1.2
-lightfm~=1.16
 Sphinx
 coverage
 awscli
@@ -23,6 +22,9 @@ tqdm~=4.64.0
 sklearn~=0.0
 scikit-learn~=1.1.2
 setuptools~=65.3.0
+lightfm~=1.16
+tensorflow-recommenders
+tensorflow-datasets
 path~=16.4.0
 torch
 dgl

@@ -3,9 +3,11 @@ from datetime import datetime
 
 import click
 
+from src.models.diversifaction.diversify_pipeline import \
+    rank_and_diversify_component
+
 from ..models.candidate_generation.generate_candidates_pipeline import \
     candidate_generation_component
-from ..models.learn_to_rank.make_rank_pipeline import ranking_component
 
 
 @click.command()
@@ -32,17 +34,19 @@ def main(model_path: str, dataset_path: str, encodings_path: str, features_path:
     start = datetime.now()
     relevant_playlists, tracks, features, user_playlist, recommended_tracks = candidate_generation_component(
         model_path, dataset_path, encodings_path, user_playlist, features_path, playlists_path)
-    logging.info(f"Candidate generation execution time: {datetime.now() - start}")
+    logging.info(
+        f"Candidate generation execution time: {datetime.now() - start}")
     start = datetime.now()
-    relevant_playlists, features, user_playlist, recommended_tracks = ranking_component(features, relevant_playlists, user_playlist, 100)
-    logging.info(f"Ranking execution time: {datetime.now() - start}")
-    
-    print(tracks)
+    relevant_playlists, features, user_playlist, recommended_tracks = rank_and_diversify_component(
+        features, relevant_playlists, user_playlist, 100)
+    logging.info(
+        f"Ranking and diversification execution time: {datetime.now() - start}")
+    start = datetime.now()
+
     print(list(recommended_tracks))
     print(relevant_playlists.shape)
     print(user_playlist.shape)
     print(features.shape)
-
 
 
 if __name__ == '__main__':
